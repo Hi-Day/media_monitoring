@@ -27,6 +27,25 @@ interface AlertRule {
   enabled: boolean;
 }
 
+interface Tracker {
+  id: string;
+  name: string;
+  query: string;
+  filters: {
+    type: string[];
+    country: string[];
+    sentiment: string;
+  };
+  kpi: {
+    mentions_7d: number;
+    alerts_24h: number;
+    sov_7d: number;
+    sentiment_score: number;
+  };
+  created_at?: string;
+  updated_at?: string;
+}
+
 interface Topic {
   id: string;
   name: string;
@@ -5121,6 +5140,560 @@ function InfluencerTrackingDashboard({
   );
 }
 
+// ------------------------------
+// TRACKER MANAGEMENT
+// ------------------------------
+function TrackerManager({
+  trackers,
+  activeTrackerId,
+  onClose,
+  onAddTracker,
+  onDeleteTracker,
+  onUpdateTracker,
+  onSelectTracker
+}: {
+  trackers: Tracker[];
+  activeTrackerId: string;
+  onClose: () => void;
+  onAddTracker: (tracker: Omit<Tracker, 'id' | 'created_at' | 'updated_at'>) => void;
+  onDeleteTracker: (trackerId: string) => void;
+  onUpdateTracker: (trackerId: string, updates: Partial<Tracker>) => void;
+  onSelectTracker: (trackerId: string) => void;
+}) {
+  const [activeTab, setActiveTab] = useState<'list' | 'add' | 'edit'>('list');
+  const [selectedTracker, setSelectedTracker] = useState<Tracker | null>(null);
+  const [newTracker, setNewTracker] = useState({
+    name: '',
+    query: '',
+    filters: {
+      type: ['news', 'social'],
+      country: ['ID'],
+      sentiment: 'all'
+    }
+  });
+
+  const [editTracker, setEditTracker] = useState<Tracker | null>(null);
+
+  const handleAddTracker = () => {
+    if (!newTracker.name.trim() || !newTracker.query.trim()) {
+      alert('Name and query are required');
+      return;
+    }
+
+    onAddTracker({
+      ...newTracker,
+      kpi: {
+        mentions_7d: Math.floor(Math.random() * 5000) + 100,
+        alerts_24h: Math.floor(Math.random() * 10),
+        sov_7d: Math.random() * 100,
+        sentiment_score: (Math.random() - 0.5) * 2
+      }
+    });
+
+    // Reset form
+    setNewTracker({
+      name: '',
+      query: '',
+      filters: {
+        type: ['news', 'social'],
+        country: ['ID'],
+        sentiment: 'all'
+      }
+    });
+    setActiveTab('list');
+  };
+
+  const handleUpdateTracker = () => {
+    if (!editTracker) return;
+    
+    onUpdateTracker(editTracker.id, editTracker);
+    setEditTracker(null);
+    setActiveTab('list');
+  };
+
+  const startEdit = (tracker: Tracker) => {
+    setEditTracker({ ...tracker });
+    setActiveTab('edit');
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-4xl mx-4 max-h-[90vh] overflow-hidden">
+        <div className="p-4 border-b flex items-center justify-between bg-blue-50">
+          <h2 className="text-lg font-semibold flex items-center gap-2">
+            <ListFilter className="h-5 w-5 text-blue-600" />
+            Tracker Management
+          </h2>
+          <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        {/* Tab Navigation */}
+        <div className="border-b">
+          <div className="flex">
+            {[
+              { id: 'list', label: 'All Trackers', icon: ListFilter },
+              { id: 'add', label: 'Add New Tracker', icon: Plus },
+              { id: 'edit', label: 'Edit Tracker', icon: Settings, disabled: !editTracker }
+            ].map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => !tab.disabled && setActiveTab(tab.id as any)}
+                disabled={tab.disabled}
+                className={`px-4 py-3 flex items-center gap-2 border-b-2 transition-colors ${
+                  activeTab === tab.id 
+                    ? 'border-blue-500 text-blue-600 bg-blue-50' 
+                    : tab.disabled 
+                      ? 'border-transparent text-gray-400 cursor-not-allowed'
+                      : 'border-transparent hover:bg-gray-50'
+                }`}
+              >
+                <tab.icon className="h-4 w-4" />
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="p-4 max-h-[70vh] overflow-y-auto">
+          {/* Tracker List Tab */}
+          {activeTab === 'list' && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-medium text-gray-900">All Trackers ({trackers.length})</h3>
+                  <p className="text-sm text-gray-500">Manage your media monitoring trackers</p>
+                </div>
+                <button
+                  onClick={() => setActiveTab('add')}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+                >
+                  <Plus className="h-4 w-4" />
+                  Add New Tracker
+                </button>
+              </div>
+
+              <div className="grid gap-4">
+                {trackers.map((tracker) => (
+                  <div 
+                    key={tracker.id} 
+                    className={`border rounded-lg p-4 transition-all ${
+                      tracker.id === activeTrackerId 
+                        ? 'border-blue-500 bg-blue-50' 
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <h4 className="font-semibold text-lg">{tracker.name}</h4>
+                          {tracker.id === activeTrackerId && (
+                            <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium">
+                              Active
+                            </span>
+                          )}
+                        </div>
+                        
+                        <div className="mb-3">
+                          <div className="text-sm text-gray-600 mb-1">Query:</div>
+                          <div className="text-sm font-mono bg-gray-100 p-2 rounded border">
+                            {tracker.query}
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                          <div>
+                            <div className="text-gray-500">Mentions (7d)</div>
+                            <div className="font-semibold text-lg">{tracker.kpi.mentions_7d.toLocaleString()}</div>
+                          </div>
+                          <div>
+                            <div className="text-gray-500">Alerts (24h)</div>
+                            <div className="font-semibold text-lg">{tracker.kpi.alerts_24h}</div>
+                          </div>
+                          <div>
+                            <div className="text-gray-500">Share of Voice</div>
+                            <div className="font-semibold text-lg">{tracker.kpi.sov_7d.toFixed(1)}%</div>
+                          </div>
+                          <div>
+                            <div className="text-gray-500">Sentiment</div>
+                            <div className={`font-semibold text-lg ${
+                              tracker.kpi.sentiment_score > 0 ? 'text-green-600' : 
+                              tracker.kpi.sentiment_score < 0 ? 'text-red-600' : 'text-gray-600'
+                            }`}>
+                              {tracker.kpi.sentiment_score > 0 ? '+' : ''}{tracker.kpi.sentiment_score.toFixed(2)}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="mt-3 flex flex-wrap gap-1">
+                          <span className="text-xs bg-gray-100 px-2 py-1 rounded">
+                            Types: {tracker.filters.type.join(', ')}
+                          </span>
+                          <span className="text-xs bg-gray-100 px-2 py-1 rounded">
+                            Countries: {tracker.filters.country.join(', ')}
+                          </span>
+                          <span className="text-xs bg-gray-100 px-2 py-1 rounded">
+                            Sentiment: {tracker.filters.sentiment}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col gap-2 ml-4">
+                        <button
+                          onClick={() => onSelectTracker(tracker.id)}
+                          className={`px-3 py-1 rounded text-sm font-medium ${
+                            tracker.id === activeTrackerId
+                              ? 'bg-blue-600 text-white'
+                              : 'border border-blue-600 text-blue-600 hover:bg-blue-50'
+                          }`}
+                        >
+                          {tracker.id === activeTrackerId ? 'Active' : 'Select'}
+                        </button>
+                        
+                        <button
+                          onClick={() => startEdit(tracker)}
+                          className="px-3 py-1 border border-gray-300 text-gray-700 rounded text-sm hover:bg-gray-50"
+                        >
+                          Edit
+                        </button>
+                        
+                        <button
+                          onClick={() => {
+                            if (window.confirm(`Are you sure you want to delete "${tracker.name}"?`)) {
+                              onDeleteTracker(tracker.id);
+                            }
+                          }}
+                          disabled={trackers.length <= 1}
+                          className="px-3 py-1 border border-red-300 text-red-700 rounded text-sm hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Add New Tracker Tab */}
+          {activeTab === 'add' && (
+            <div className="space-y-6">
+              <div>
+                <h3 className="font-medium text-gray-900 mb-1">Add New Tracker</h3>
+                <p className="text-sm text-gray-500">Create a new media monitoring tracker</p>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Tracker Name *
+                  </label>
+                  <input
+                    type="text"
+                    value={newTracker.name}
+                    onChange={(e) => setNewTracker({...newTracker, name: e.target.value})}
+                    placeholder="e.g., Brand Monitoring - Indonesia"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Search Query *
+                  </label>
+                  <textarea
+                    value={newTracker.query}
+                    onChange={(e) => setNewTracker({...newTracker, query: e.target.value})}
+                    placeholder='e.g., ("Brand Name" OR "Company Name") AND lang:id NOT (spam OR lowongan)'
+                    rows={3}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Use boolean operators: AND, OR, NOT. Use quotes for exact phrases.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Content Types
+                    </label>
+                    <div className="space-y-2">
+                      {['news', 'social', 'forum', 'blog', 'video'].map(type => (
+                        <label key={type} className="flex items-center">
+                          <input
+                            type="checkbox"
+                            checked={newTracker.filters.type.includes(type)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setNewTracker({
+                                  ...newTracker,
+                                  filters: {
+                                    ...newTracker.filters,
+                                    type: [...newTracker.filters.type, type]
+                                  }
+                                });
+                              } else {
+                                setNewTracker({
+                                  ...newTracker,
+                                  filters: {
+                                    ...newTracker.filters,
+                                    type: newTracker.filters.type.filter(t => t !== type)
+                                  }
+                                });
+                              }
+                            }}
+                            className="mr-2"
+                          />
+                          <span className="text-sm capitalize">{type}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Countries
+                    </label>
+                    <div className="space-y-2">
+                      {[
+                        { code: 'ID', name: 'Indonesia' },
+                        { code: 'MY', name: 'Malaysia' },
+                        { code: 'SG', name: 'Singapore' },
+                        { code: 'TH', name: 'Thailand' },
+                        { code: 'VN', name: 'Vietnam' }
+                      ].map(country => (
+                        <label key={country.code} className="flex items-center">
+                          <input
+                            type="checkbox"
+                            checked={newTracker.filters.country.includes(country.code)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setNewTracker({
+                                  ...newTracker,
+                                  filters: {
+                                    ...newTracker.filters,
+                                    country: [...newTracker.filters.country, country.code]
+                                  }
+                                });
+                              } else {
+                                setNewTracker({
+                                  ...newTracker,
+                                  filters: {
+                                    ...newTracker.filters,
+                                    country: newTracker.filters.country.filter(c => c !== country.code)
+                                  }
+                                });
+                              }
+                            }}
+                            className="mr-2"
+                          />
+                          <span className="text-sm">{country.name}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Sentiment Filter
+                    </label>
+                    <select
+                      value={newTracker.filters.sentiment}
+                      onChange={(e) => setNewTracker({
+                        ...newTracker,
+                        filters: { ...newTracker.filters, sentiment: e.target.value }
+                      })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="all">All Sentiments</option>
+                      <option value="pos">Positive Only</option>
+                      <option value="neg">Negative Only</option>
+                      <option value="neu">Neutral Only</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-4 border-t">
+                <button
+                  onClick={() => setActiveTab('list')}
+                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleAddTracker}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
+                  Create Tracker
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Edit Tracker Tab */}
+          {activeTab === 'edit' && editTracker && (
+            <div className="space-y-6">
+              <div>
+                <h3 className="font-medium text-gray-900 mb-1">Edit Tracker: {editTracker.name}</h3>
+                <p className="text-sm text-gray-500">Update tracker settings</p>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Tracker Name *
+                  </label>
+                  <input
+                    type="text"
+                    value={editTracker.name}
+                    onChange={(e) => setEditTracker({...editTracker, name: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Search Query *
+                  </label>
+                  <textarea
+                    value={editTracker.query}
+                    onChange={(e) => setEditTracker({...editTracker, query: e.target.value})}
+                    rows={3}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Content Types
+                    </label>
+                    <div className="space-y-2">
+                      {['news', 'social', 'forum', 'blog', 'video'].map(type => (
+                        <label key={type} className="flex items-center">
+                          <input
+                            type="checkbox"
+                            checked={editTracker.filters.type.includes(type)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setEditTracker({
+                                  ...editTracker,
+                                  filters: {
+                                    ...editTracker.filters,
+                                    type: [...editTracker.filters.type, type]
+                                  }
+                                });
+                              } else {
+                                setEditTracker({
+                                  ...editTracker,
+                                  filters: {
+                                    ...editTracker.filters,
+                                    type: editTracker.filters.type.filter(t => t !== type)
+                                  }
+                                });
+                              }
+                            }}
+                            className="mr-2"
+                          />
+                          <span className="text-sm capitalize">{type}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Countries
+                    </label>
+                    <div className="space-y-2">
+                      {[
+                        { code: 'ID', name: 'Indonesia' },
+                        { code: 'MY', name: 'Malaysia' },
+                        { code: 'SG', name: 'Singapore' },
+                        { code: 'TH', name: 'Thailand' },
+                        { code: 'VN', name: 'Vietnam' }
+                      ].map(country => (
+                        <label key={country.code} className="flex items-center">
+                          <input
+                            type="checkbox"
+                            checked={editTracker.filters.country.includes(country.code)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setEditTracker({
+                                  ...editTracker,
+                                  filters: {
+                                    ...editTracker.filters,
+                                    country: [...editTracker.filters.country, country.code]
+                                  }
+                                });
+                              } else {
+                                setEditTracker({
+                                  ...editTracker,
+                                  filters: {
+                                    ...editTracker.filters,
+                                    country: editTracker.filters.country.filter(c => c !== country.code)
+                                  }
+                                });
+                              }
+                            }}
+                            className="mr-2"
+                          />
+                          <span className="text-sm">{country.name}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Sentiment Filter
+                    </label>
+                    <select
+                      value={editTracker.filters.sentiment}
+                      onChange={(e) => setEditTracker({
+                        ...editTracker,
+                        filters: { ...editTracker.filters, sentiment: e.target.value }
+                      })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="all">All Sentiments</option>
+                      <option value="pos">Positive Only</option>
+                      <option value="neg">Negative Only</option>
+                      <option value="neu">Neutral Only</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-4 border-t">
+                <button
+                  onClick={() => {
+                    setEditTracker(null);
+                    setActiveTab('list');
+                  }}
+                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleUpdateTracker}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
+                  Update Tracker
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ExportJsonButton({ data, filename = "demo-data.json" }: { data: any; filename?: string }) {
   return (
     <button
@@ -5176,6 +5749,7 @@ export default function MediaMonitoringDemo() {
   const [showCompetitiveIntel, setShowCompetitiveIntel] = useState(false);
   const [showContentRecommendations, setShowContentRecommendations] = useState(false);
   const [showInfluencerTracking, setShowInfluencerTracking] = useState(false);
+  const [showTrackerManager, setShowTrackerManager] = useState(false);
   const [trackers, setTrackers] = useState(demoData.trackers);
 
   const activeTracker = useMemo(() => trackers.find(t => t.id === activeTrackerId)!, [activeTrackerId, trackers]);
@@ -5188,6 +5762,40 @@ export default function MediaMonitoringDemo() {
         : t
     ));
     setShowQueryBuilder(false);
+  };
+
+  const handleAddTracker = (newTracker: Omit<Tracker, 'id' | 'created_at' | 'updated_at'>) => {
+    const tracker: Tracker = {
+      ...newTracker,
+      id: `trk-${Date.now()}`,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    setTrackers([...trackers, tracker]);
+    setActiveTrackerId(tracker.id);
+  };
+
+  const handleDeleteTracker = (trackerId: string) => {
+    if (trackers.length <= 1) {
+      alert('Cannot delete the last tracker. At least one tracker is required.');
+      return;
+    }
+    
+    const updatedTrackers = trackers.filter(t => t.id !== trackerId);
+    setTrackers(updatedTrackers);
+    
+    // If we deleted the active tracker, switch to the first available tracker
+    if (activeTrackerId === trackerId) {
+      setActiveTrackerId(updatedTrackers[0].id);
+    }
+  };
+
+  const handleUpdateTracker = (trackerId: string, updates: Partial<Tracker>) => {
+    setTrackers(trackers.map(t => 
+      t.id === trackerId 
+        ? { ...t, ...updates, updated_at: new Date().toISOString() }
+        : t
+    ));
   };
 
   const filteredMentions = useMemo(() => {
@@ -5252,10 +5860,19 @@ export default function MediaMonitoringDemo() {
             <div className="p-3">
               <div className="flex items-center justify-between mb-2">
                 <div className="font-medium flex items-center gap-2"><ListFilter className="h-4 w-4"/>Trackers</div>
-                <span className="text-xs px-2 py-0.5 rounded bg-slate-100">{demoData.trackers.length}</span>
+                <div className="flex items-center gap-1">
+                  <span className="text-xs px-2 py-0.5 rounded bg-slate-100">{trackers.length}</span>
+                  <button
+                    onClick={() => setShowTrackerManager(true)}
+                    className="p-1 hover:bg-gray-100 rounded"
+                    title="Manage Trackers"
+                  >
+                    <Settings className="h-3 w-3" />
+                  </button>
+                </div>
               </div>
               <div className="h-[280px] pr-2 overflow-y-auto space-y-2">
-                {demoData.trackers.map((t) => (
+                {trackers.map((t) => (
                   <button
                     key={t.id}
                     onClick={() => setActiveTrackerId(t.id)}
@@ -5591,6 +6208,18 @@ export default function MediaMonitoringDemo() {
       {showInfluencerTracking && (
         <InfluencerTrackingDashboard
           onClose={() => setShowInfluencerTracking(false)}
+        />
+      )}
+
+      {showTrackerManager && (
+        <TrackerManager
+          trackers={trackers}
+          activeTrackerId={activeTrackerId}
+          onClose={() => setShowTrackerManager(false)}
+          onAddTracker={handleAddTracker}
+          onDeleteTracker={handleDeleteTracker}
+          onUpdateTracker={handleUpdateTracker}
+          onSelectTracker={setActiveTrackerId}
         />
       )}
     </div>
