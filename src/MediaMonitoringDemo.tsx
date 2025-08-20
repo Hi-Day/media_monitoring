@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import icon from './icon.png';
 import {
   ResponsiveContainer, AreaChart, Area, CartesianGrid, XAxis, YAxis, Tooltip,
   BarChart, Bar, Legend, PieChart, Pie, Cell
@@ -5814,8 +5815,8 @@ export default function MediaMonitoringDemo() {
       {/* Top Bar */}
       <div className="sticky top-0 z-30 bg-white/80 backdrop-blur border-b">
         <div className="mx-auto max-w-7xl px-4 py-3 flex items-center gap-3">
-          <Layers className="h-5 w-5" />
-          <div className="font-semibold">Hi-Day Media Monitoring</div>
+          <img src={icon} alt="HeadLine Initiative Logo" className="h-8 w-8 rounded" />
+          <div className="font-semibold text-xl text-slate-800">HeadLine Initiative</div>
           <div className="text-sm text-slate-500">{demoData.organization.name} • {demoData.organization.region}</div>
           <div className="ml-auto flex items-center gap-2">
             <ExportJsonButton data={demoData} />
