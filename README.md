@@ -9,7 +9,7 @@
 
 ## 🚀 Live Demo
 
-[View Live Demo](your-demo-url-here) | [Documentation](your-docs-url-here)
+[View Live Demo](https://media-monitoring-two.vercel.app/) | [Documentation](your-docs-url-here)
 
 ## ✨ Features Overview
 
